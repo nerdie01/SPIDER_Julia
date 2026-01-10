@@ -60,12 +60,12 @@ function [x,y,t,u,v,p,Bx,By] = mhd_rk_generator(_omega, _A, _forcing, n, dt, tim
         vx = real(ifft2(1i*kx.*to_v.*omega));
         vy = real(ifft2(1i*ky.*to_v.*omega));
 
-        Bxx = real(ifft2(-kx.*ky.*omega));
-        Bxy = real(ifft2(-ky.^2.*omega))
-        Byx = real(ifft2(kx.^2.*omega))
-        Byy = real(ifft2(ky.*kx.*omega))
+        Bxx = real(ifft2(-kx.*ky.*A));
+        Bxy = real(ifft2(-ky.^2.*A))
+        Byx = real(ifft2(kx.^2.*A))
+        Byy = real(ifft2(ky.*kx.*A))
 
-        p(:,:,t) = real(ifft2( to_p.*fft2( ux.^2 + vy.^2 + 2*uy.*vx - Bxx.^2 - Byy.^2 - 2*Bxy.*Byx ) ));
+        p(:,:,t) = real(ifft2(to_p.*fft2(ux.^2 + vy.^2 + 2*uy.*vx - Bxx.^2 - Byy.^2 - 2*Bxy.*Byx) .* mask));
 
         f = @(x, y) mhd_terms(x, y, kx, ky, to_u, to_v, nu, eta, lorentz, forcing, mask);
 
@@ -74,8 +74,8 @@ function [x,y,t,u,v,p,Bx,By] = mhd_rk_generator(_omega, _A, _forcing, n, dt, tim
         end
 
         if vis
-            #visualize_fields(omega, A, "velocity", "B field");
-            visualize_field_real(p(:,:,t), "pressure");
+            visualize_fields(omega, A, "velocity", "B field");
+            #visualize_field_real(p(:,:,t), "pressure");
             disp(t);
         end
     end

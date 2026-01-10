@@ -15,10 +15,6 @@ function report_identified_model(cs::AbstractMatrix{<:Real}, residuals::Abstract
     max_abs::Float64 = maximum(abs.(c))
     c = c ./ max_abs
 
-    println(c)
-    println(labels[I])
-    println('\n',"="^20,'\n')
-
     if c[1] < 0
         c = -c
     end
@@ -41,9 +37,6 @@ function report_identified_model(cs::AbstractMatrix{<:Real}, residuals::Abstract
         end
     end
     println(" = 0")
-
-    println('\n',"="^20,'\n')
-    
     return k
 end
 

@@ -10,8 +10,8 @@ function [nl_omega, nl_A] = mhd_terms(omega, A, kx, ky, to_u, to_v, nu, eta, lor
     
     adv_omega = fft2(-u.*wx - v.*wy) .* mask;
 
-    curr = real(ifft2((kx.^2 + ky.^2) .* A));
-    lorentz_omega = lorentz * (1i*kx .* fft2(curr .* Bx) + 1i*ky .* fft2(curr .* By)) .* mask;
+    curr = real(ifft2(-(kx.^2 + ky.^2) .* A));
+    lorentz_omega = -lorentz * (1i*kx.*fft2(curr.*Bx) + 1i*ky.*fft2(curr.*By)) .* mask;
 
     visc_omega = -nu * (kx.^2 + ky.^2) .* omega;
 
