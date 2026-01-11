@@ -1,5 +1,6 @@
 module EnvelopePol
 
+export envelope_pol
 function envelope_pol(m::Int, n::Int)::Matrix{Float64}
     deg::Int = 2*m
     coeffs_asc::Vector{Float64} = zeros(deg+1)

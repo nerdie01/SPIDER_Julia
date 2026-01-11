@@ -2,6 +2,7 @@ module GreedyRegression
 
 using LinearAlgebra
 
+export greedy_regression
 function greedy_regression(G::AbstractMatrix{<:Real})::Tuple{Matrix{Float64}, Vector{Float64}, Matrix{Float64}}
     m::Int, n::Int = size(G)
 

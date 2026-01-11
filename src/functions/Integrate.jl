@@ -2,7 +2,8 @@ module Integrate
 
 using LinearAlgebra
 
-function integrate(data::AbstractArray, derivs::AbstractVector{Int}, grid::AbstractVector{<:AbstractVector}, corners::AbstractMatrix{Int}, size_vec::AbstractVector{Int}, pol::AbstractMatrix)
+export poly_integrate
+function poly_integrate(data::AbstractArray, derivs::AbstractVector{Int}, grid::AbstractVector{<:AbstractVector}, corners::AbstractMatrix{Int}, size_vec::AbstractVector{Int}, pol::AbstractMatrix)
 
     n = size(corners, 1)
     num_windows = size(corners, 2)

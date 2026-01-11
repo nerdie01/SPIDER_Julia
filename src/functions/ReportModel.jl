@@ -2,8 +2,8 @@ module ReportModel
 
 using Printf
 
-function report_identified_model(cs::AbstractMatrix{<:Real}, residuals::AbstractVector{<:Real}, scales::AbstractVector{<:Real}, labels::AbstractVector{<:AbstractString}, gamma::Real, hide_coef_tol::Real=0.005)::Int
-
+export report_identified_model
+function report_identified_model(cs::AbstractMatrix{<:Real}, residuals::AbstractVector{<:Real}, scales::AbstractVector{<:Real}, labels::AbstractVector{<:AbstractString}, gamma::Real, hide_coef_tol::Real=0.005)::Tuple{Int, Vector{String}, Vector{Float64}, String}
     ratio::Vector{Float64} = (residuals[1:end-1]) ./ (residuals[2:end])
     jumps::Vector{Int} = findall(ratio .> gamma)
     k::Int = jumps[end] + 1
@@ -19,25 +19,26 @@ function report_identified_model(cs::AbstractMatrix{<:Real}, residuals::Abstract
         c = -c
     end
 
-    coef::String = ""
+    eq::String = ""
     for i in eachindex(I)
         if abs(abs(c[i]) - 1) < hide_coef_tol
-            global coef = @sprintf("")
+            eq *= ""
         else
-            global coef = @sprintf("%.2g", abs(c[i]))
+            eq *= repr(round(abs(c[i]); digits=3))
         end
         
-        print(coef * labels[I[i]])
+        eq *= labels[I[i]]
         if i < length(I)
             if c[i+1] > 0
-                print(" + ")
+                eq *= " + "
             else
-                print(" - ")
+                eq *= " - "
             end
         end
     end
-    println(" = 0")
-    return k
+    eq *= " = 0"
+    
+    return (k, labels[I], c, eq)
 end
 
 end

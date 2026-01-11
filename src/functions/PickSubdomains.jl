@@ -2,6 +2,7 @@ module PickSubdomains
 
 using Random
 
+export pick_subdomains
 function pick_subdomains(size_of_data::Vector{Int}, size_vec::AbstractVector{Int}, buffer::Int, nw::Int, seed::Int)::Matrix{Int}
     Random.seed!(seed)
 
