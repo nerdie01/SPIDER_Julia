@@ -5,19 +5,57 @@ addpath('mhd')
 addpath('navier_stokes')
 
 
-n = 128;
-dt = 0.01;
+n = 64;
+dt = 0.025;
 timesteps = 100;
 nu = 0.01;
-eta = 0.02;
+eta = 0.01;
+k1 = 1.0;
+k2 = 1.0
 skip = 10;
 
-butcher_rk4=[0, 0, 0, 0, 0; 0.5, 0.5, 0, 0, 0; 0.5, 0, 0.5, 0, 0; 1, 0, 0, 1, 0; 0, 1/6, 1/3, 1/3, 1/6];
-
-omega = @(x, y) 3*sin(3*x).*sin(3*y) + sin(x).*sin(y);
-A = @(x, y) cos(x) .* cos(y);
+# orszag-tang vortex
+omega = @(x, y) 1/k1 * cos(k1*x) + 1/k2 * cos(k2*y)
+A = @(x, y) 1/k1 * sin(k1*x) + 1/k2 * sin(k2*y);
 forcing = @(x, y) 0;
 
-[x, y, t, u, v, p, Bx, By] = mhd_rk_generator(omega, A, forcing, n, dt, timesteps, nu, eta, 1, skip, butcher_rk4, true);
-result = struct("x",x,"y",y,"t",t,"u",u,"v",v,"p",p,"Bx",Bx,"By",By)
-save("-hdf5", "mhd_rk4_naive_result.hdf5", "result")
+butcher_rk2 = struct();
+butcher_rk2.A = [1/2] # implicit midpoint / gauss-legendre order 2
+butcher_rk2.b = [1]
+
+butcher_rk3 = struct();
+butcher_rk3.A = [
+    1/4 -1/4;
+    1/4 5/12]; # radau order 3
+butcher_rk3.b = [1/4 3/4];
+
+butcher_rk4 = struct();
+butcher_rk4.A = [
+    1/4 (1/4-sqrt(3)/6);
+    (1/4+sqrt(3)/6) 1/4]; # gauss-legendre order 4
+butcher_rk4.b = [1/2 1/2];
+
+butcher_rk5 = struct();
+butcher_rk5.A = [
+    1/9 ((-1-sqrt(6))/18) ((-1+sqrt(6))/18);
+    1/9 (11/45+7*sqrt(6)/360) (11/45-43*sqrt(6)/360);
+    1/9 (11/45+43*sqrt(6)/360) (11/45-7*sqrt(6)/360)];
+butcher_rk5.b = [1/9 (4/9+sqrt(6)/36) (4/9-sqrt(6)/36)];
+
+butcher_rk6 = struct();
+butcher_rk6.A = [
+    5/36 (2/9-sqrt(15)/15) (5/36-sqrt(15)/30);
+    (5/36+sqrt(15)/24) 2/9 (5/36-sqrt(15)/24);
+    (5/36+sqrt(15)/30) (2/9+sqrt(15)/15) 5/36
+];
+butcher_rk6.b = [5/18 4/9 5/18];
+
+schemes={'RK2', 'RK3', 'RK4', 'RK5', 'RK6'};
+
+butchers={butcher_rk2, butcher_rk3, butcher_rk4, butcher_rk5, butcher_rk6};
+
+for i = 1:length(schemes)
+    [x, y, t, u, v, p, Bx, By] = mhd_rk_implicit(omega, A, forcing, n, dt, timesteps, nu, eta, 1, skip, butchers{i}, true);
+    result = struct("x",x,"y",y,"t",t,"u",u,"v",v,"p",p,"Bx",Bx,"By",By);
+    save("-hdf5", ["orszag-tang-" schemes{i} ".hdf5"], "result");
+end

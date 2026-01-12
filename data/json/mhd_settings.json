@@ -17,10 +17,10 @@
     "size_of_data": [128, 128, 100],
     "integration_size": [64, 64, 32],
     "buffer": 0,
-    "seed": 1,
+    "seed": 10,
     "grid": ["y", "x", "t"],
 
-    "gamma": 1.5,
+    "gamma": 2,
     "equations_to_discover": 5,
 
     "library_terms": {
