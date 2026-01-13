@@ -5,18 +5,21 @@ addpath('mhd')
 addpath('navier_stokes')
 
 
-n = 64;
-dt = 0.025;
-timesteps = 100;
-nu = 0.01;
+n = 128;
+dt = 0.01;
+timesteps = 1000;
+nu = 0.002;
 eta = 0.01;
 k1 = 1.0;
 k2 = 1.0
 skip = 10;
 
-# orszag-tang vortex
-omega = @(x, y) 1/k1 * cos(k1*x) + 1/k2 * cos(k2*y)
-A = @(x, y) 1/k1 * sin(k1*x) + 1/k2 * sin(k2*y);
+# random noise
+rng = 42
+omega = @(x, y) rand(n,n) #1/k1 * cos(k1*x) + 1/k2 * cos(k2*y)
+
+rng = 21
+A = @(x, y) rand(n,n);
 forcing = @(x, y) 0;
 
 butcher_rk2 = struct();
@@ -52,10 +55,10 @@ butcher_rk6.b = [5/18 4/9 5/18];
 
 schemes={'RK2', 'RK3', 'RK4', 'RK5', 'RK6'};
 
-butchers={butcher_rk2, butcher_rk3, butcher_rk4, butcher_rk5, butcher_rk6};
+butchers={butcher_rk6};
 
 for i = 1:length(schemes)
     [x, y, t, u, v, p, Bx, By] = mhd_rk_implicit(omega, A, forcing, n, dt, timesteps, nu, eta, 1, skip, butchers{i}, true);
-    result = struct("x",x,"y",y,"t",t,"u",u,"v",v,"p",p,"Bx",Bx,"By",By);
-    save("-hdf5", ["orszag-tang-" schemes{i} ".hdf5"], "result");
+    #result = struct("x",x,"y",y,"t",t,"u",u,"v",v,"p",p,"Bx",Bx,"By",By);
+    #save("-hdf5", ["orszag-tang-" schemes{i} ".hdf5"], "result");
 end
