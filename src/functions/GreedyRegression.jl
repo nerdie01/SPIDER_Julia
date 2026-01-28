@@ -22,19 +22,19 @@ function greedy_regression(G::AbstractMatrix{<:Real})::Tuple{Matrix{Float64}, Ve
 
         F_svd = svd(current_G)
         U = F_svd.U
-        S_vec = F_svd.S
+        Σ_vec = F_svd.S
         V = F_svd.V
 
         cs[I, k] = V[:, end]
-        residuals[k] = S_vec[end]
+        residuals[k] = Σ_vec[end]
 
         if k == 1
             break
         end
 
         candidates::Vector{Float64} = zeros(k)
-        s1::Float64 = S_vec[end]
-        s2::Float64 = S_vec[end-1]
+        s1::Float64 = Σ_vec[end]
+        s2::Float64 = Σ_vec[end-1]
         r::Float64 = s1 / s2
 
         for i in 1:k
@@ -49,8 +49,8 @@ function greedy_regression(G::AbstractMatrix{<:Real})::Tuple{Matrix{Float64}, Ve
                 term3 = -w[end-1]^2 * (r^2 - Σ_s^2) / (r^2 - 1)
                 term4 = 0.0
                 
-                if !isempty(S_vec[1:end-2])
-                    denom = (S_vec[1:end-2] ./ s2).^2 .- Σ_s^2
+                if !isempty(Σ_vec[1:end-2])
+                    denom = (Σ_vec[1:end-2] ./ s2).^2 .- Σ_s^2
                     term4 = -sum((w[1:end-2].^2) ./ denom) * (r^2 - Σ_s^2) * (1 - Σ_s^2) / (r^2 - 1)
                 end
                 return term1 + term2 + term3 + term4

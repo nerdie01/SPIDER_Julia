@@ -5,26 +5,30 @@ addpath('mhd')
 addpath('navier_stokes')
 
 
-n = 128;
-dt = 0.01;
-timesteps = 1000;
-nu = 0.002;
-eta = 0.01;
-k1 = 1.0;
-k2 = 1.0
+n = 64;
+dt = 0.02;
+timesteps = 100;
+nu = 2^-6;
+eta = 2^-6;
 skip = 10;
 
-# random noise
-rng = 42
-omega = @(x, y) rand(n,n) #1/k1 * cos(k1*x) + 1/k2 * cos(k2*y)
+truncate = 1;
 
-rng = 21
+# random noise
+rng(1)
+omega = @(x, y) rand(n,n)
+
+rng(2)
 A = @(x, y) rand(n,n);
 forcing = @(x, y) 0;
 
+butcher_rk1 = struct();
+butcher_rk1.A = [1];
+butcher_rk1.b = [1]
+
 butcher_rk2 = struct();
-butcher_rk2.A = [1/2] # implicit midpoint / gauss-legendre order 2
-butcher_rk2.b = [1]
+butcher_rk2.A = [1/2]; # implicit midpoint / gauss-legendre order 2
+butcher_rk2.b = [1];
 
 butcher_rk3 = struct();
 butcher_rk3.A = [
@@ -53,12 +57,12 @@ butcher_rk6.A = [
 ];
 butcher_rk6.b = [5/18 4/9 5/18];
 
-schemes={'RK2', 'RK3', 'RK4', 'RK5', 'RK6'};
+schemes={'RK1_bs'};
 
-butchers={butcher_rk6};
+butchers={butcher_rk1};
 
 for i = 1:length(schemes)
     [x, y, t, u, v, p, Bx, By] = mhd_rk_implicit(omega, A, forcing, n, dt, timesteps, nu, eta, 1, skip, butchers{i}, true);
-    #result = struct("x",x,"y",y,"t",t,"u",u,"v",v,"p",p,"Bx",Bx,"By",By);
-    #save("-hdf5", ["orszag-tang-" schemes{i} ".hdf5"], "result");
+    result = struct("x",x,"y",y,"t",t(truncate:end),"u",u(:,:,truncate:end),"v",v(:,:,truncate:end),"p",p(:,:,truncate:end),"Bx",Bx(:,:,truncate:end),"By",By(:,:,truncate:end));
+    save("-hdf5", ["data-" schemes{i} ".hdf5"], "result");
 end

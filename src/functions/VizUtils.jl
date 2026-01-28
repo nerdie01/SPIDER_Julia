@@ -9,10 +9,10 @@ function quickmap(F::Matrix, steps)
     fig
 end
 
-function quickanim(F::Array, steps)
+function quickanim(F::Array, steps::Int, name::String="quickanim")
     fig, _, hm = heatmap(real.(F[:,:,1]))
     Colorbar(fig[:, end+1], hm)
-    record(fig, "quickanim.mp4", 1:steps) do i
+    record(fig, name * ".mp4", 1:steps) do i
         hm[1] = F[:,:,i]
     end
 end

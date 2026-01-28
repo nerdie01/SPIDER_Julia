@@ -1,0 +1,16 @@
+64x64 grid
+dt = 2^-6
+nu, eta = 2^-6
+omega = rng(1)
+A = rng(1)
+forcing: 0
+timesteps: 101-200
+
+RK1: backwards euler
+RK2: gauss-legendre order 2
+RK3: radau order 3
+RK4: gauss-legendre order 4
+RK5: radau order 5
+RK6: gauss-legendre order 6
+
+RK1_bs: dt = 0.02, nu, eta = 2^-6, timesteps: 1-100, backwards euler
