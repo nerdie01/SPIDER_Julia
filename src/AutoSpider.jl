@@ -36,7 +36,7 @@ function auto_spider(data_f::AbstractString, options_f::AbstractString)::Dict
 
     function add_library_term(label::AbstractString)
         term::Dict = options["library_terms"][label]
-        ops::Dict{String, Vector{String}} = term["term"]
+        ops::Vector{Dict} = term["term"]
         derivs::Vector{Int} = term["derivs"]
 
         col::Vector{Float64} = Integrate.poly_integrate(OpEval.op_eval(fields, ops), derivs, grid, corners, size_vec, pol)

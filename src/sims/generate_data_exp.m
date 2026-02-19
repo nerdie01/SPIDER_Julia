@@ -20,7 +20,7 @@ omega = @(x, y) rand(n,n) #1/k1 * cos(k1*x) + 1/k2 * cos(k2*y)
 
 rng(2)
 A = @(x, y) rand(n,n);
-forcing = @(x, y) 0;
+forcing = @(x, y) -4*cos(4*y);
 
 # https://www.ams.org/journals/mcom/1962-16-080/S0025-5718-1962-0150954-0/S0025-5718-1962-0150954-0.pdf
 butcher_rk2 = [

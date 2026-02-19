@@ -1,0 +1,7 @@
+64x64 grid
+dt = linspace(0.001, 0.005, 9)
+nu, eta = 2^-6
+omega = rng(1)
+A = rng(2)
+forcing: sin(x) + sin(y)
+timesteps: 101-200

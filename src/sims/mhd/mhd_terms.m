@@ -15,7 +15,7 @@ function [nl_omega, nl_A] = mhd_terms(omega, A, kx, ky, to_u, to_v, nu, eta, lor
 
     visc_omega = -nu * (kx.^2 + ky.^2) .* omega;
 
-    nl_omega = adv_omega + lorentz_omega + visc_omega + forcing;
+    nl_omega = adv_omega + lorentz_omega + visc_omega + fft2(forcing);
 
     Ax = real(ifft2(1i*kx .* A));
     Ay = real(ifft2(1i*ky .* A));
