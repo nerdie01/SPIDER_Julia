@@ -1,0 +1,5 @@
+data/hdf5/explicit filter=lfs diff=lfs merge=lfs -text
+data/hdf5/ieuler filter=lfs diff=lfs merge=lfs -text
+data/hdf5/implicit filter=lfs diff=lfs merge=lfs -text
+data/hdf5/ns_result.hdf5 filter=lfs diff=lfs merge=lfs -text
+data/hdf5 filter=lfs diff=lfs merge=lfs -text
