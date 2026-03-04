@@ -6,7 +6,7 @@ addpath('navier_stokes')
 
 
 n = 64;
-dt = 2^-6;
+dt = 2^-8;
 timesteps = 100;
 nu = 2^-6;
 eta = 2^-6;
@@ -20,7 +20,7 @@ omega = @(x, y) rand(n,n)
 
 rng(2)
 A = @(x, y) rand(n,n)
-forcing = @(x, y) 0; #sin(x) + sin(y);
+forcing = @(x, y) sin(x) + sin(y);
 
 butcher_rk1 = struct();
 butcher_rk1.A = [1];
@@ -57,9 +57,9 @@ butcher_rk6.A = [
 ];
 butcher_rk6.b = [5/18 4/9 5/18];
 
-schemes={'accurate'};
+schemes={'RK2-forced', 'RK4-forced', 'RK6-forced'};
 
-butchers={butcher_rk6};
+butchers={butcher_rk2, butcher_rk4, butcher_rk6};
 
 for i = 1:length(schemes)
     [x, y, t, u, v, p, Bx, By] = mhd_rk_implicit(omega, A, forcing, n, dt, timesteps, nu, eta, 1, skip, butchers{i}, true);
