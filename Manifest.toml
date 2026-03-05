@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.4"
+julia_version = "1.12.3"
 manifest_format = "2.0"
-project_hash = "67747917890b3a3b1899ce7efcb34c0a8f211671"
+project_hash = "c5a13fe6f18c48b914581359a5950d744941579a"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -958,7 +958,7 @@ version = "0.3.4"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2025.11.4"
+version = "2025.5.20"
 
 [[deps.Netpbm]]
 deps = ["FileIO", "ImageCore", "ImageMetadata"]
