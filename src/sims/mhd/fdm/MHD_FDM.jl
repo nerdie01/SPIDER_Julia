@@ -1,14 +1,17 @@
 module MHD_FDM
 
 include("../../../functions/VizUtils.jl")
-using MeshGrid, GLMakie, Random
+using MeshGrid, GLMakie, Random, LinearAlgebra
 using .VizUtils
 
 include("../../CommonSimTools.jl")
 using .CommonSimTools
 
 export mhd_fdm
-function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher_A::AbstractMatrix, butcher_b::AbstractVector, timesteps::Int, ν::AbstractFloat, η::AbstractFloat, vis::Bool=true, vis_path_prefix="", forcing::Function=(x,y)->0*x, explicit::Bool=false)
+function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher_A::AbstractMatrix, butcher_b::AbstractVector, timesteps::Int, ν::AbstractFloat, η::AbstractFloat, explicit::Bool=false, vis::Bool=true, vis_path_prefix="", forcing::Function=(x,y)->0*x)
+    x, y::Matrix{Float64} = meshgrid(LinRange(0, 2π, N+1)[1:N], LinRange(0, 2π, N+1)[1:N])
+    dx::Float64 = x[1,2] - x[1,1]
+
     function inv_∇2(f::AbstractMatrix{Float64}, ϕ0::AbstractMatrix{Float64}=zeros(N,N), Ω::Float64=1.0, iter::Int=1000)::Matrix{Float64}
         ϕ = copy(ϕ0)
         dx2::Float64 = dx^2
@@ -28,26 +31,6 @@ function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher
         end
 
         return ϕ
-    end
-
-    function solve_implicit(ω_m::AbstractMatrix{Float64}, λ::Float64, ω_p0::AbstractMatrix{Float64}=zeros(N,N), Ω::Float64=1.0, iter::Int=1000)::Matrix{Float64}
-        ω_p = copy(ω_p0)
-
-        for t in 1:iter
-            for i in 1:N
-                i_plus = mod1(i+1, N)
-                i_minus = mod1(i-1, N)
-                
-                for j in 1:N
-                    j_plus = mod1(j+1, N)
-                    j_minus = mod1(j-1, N)
-
-                    ω_p[i, j] = (1.0 - Ω)*ω_p[i, j] + Ω*(λ*(ω_p[i_plus, j] + ω_p[i_minus, j] + ω_p[i, j_plus] + ω_p[i, j_minus]) + ω_m[i, j])/(1+4λ)
-                end
-            end
-        end
-
-        return ω_p
     end
 
     function ∇2(f::AbstractMatrix{Float64})::Matrix{Float64}
@@ -71,55 +54,116 @@ function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher
         return (f[plus,:] - f[minus,:]) ./ 2dx
     end
 
-    butcher::ButcherTableau = ButcherTableau(butcher_A, butcher_b)
+    ω = fω.(x,y)
+    A = inv_∇2(-fj.(x,y))
+    frc = forcing.(x,y)
 
-    x::Matrix{Float64}, y::Matrix{Float64} = meshgrid(LinRange(0, 2π, N+1)[1:N], LinRange(0, 2π, N+1)[1:N])
-    dx::Float64 = x[1,2] - x[1,1]
+    u = zeros((N,N,timesteps))
+    v = zeros((N,N,timesteps))
+    Bx = zeros((N,N,timesteps))
+    By = zeros((N,N,timesteps))
+    p = zeros((N,N,timesteps))
 
-    ω::Array{Float64} = fω.(x,y)
+    function fdm_terms(ω::AbstractMatrix, A::AbstractMatrix)
+        ∂xω = ∂x(ω)
+        ∂yω = ∂y(ω)
+        u_  = inv_∇2(-∂yω)
+        v_  = inv_∇2(∂xω)
+        curr_  = -∇2(A)
+        Bx_ =  ∂y(A)
+        By_ = -∂x(A)
 
-    u::Array{Float64} = zeros((N,N,timesteps))
-    v::Array{Float64} = zeros((N,N,timesteps))
+        adv_ω = u_ .* ∂xω .+ v_ .* ∂yω
+        lorentz = Bx_ .* ∂x(curr_) .+ By_ .* ∂y(curr_)
+        visc = ν .* ∇2(ω) .+ frc
+        nl_ω = -adv_ω .+ lorentz .+ visc
 
-    u[:,:,1] = inv_∇2(-∂y(ω))
-    v[:,:,1] = inv_∇2(∂x(ω))
+        nl_A = -(u_ .* ∂x(A) .+ v_ .* ∂y(A)) .+ η .* ∇2(A)
 
-    curr::Array{Float64} = zeros((N,N,timesteps))
-    curr[:,:,1] = fj.(x,y)
+        return (nl_ω, nl_A)
+    end
 
-    A::Array{Float64} = inv_∇2(-curr[:,:,1])
+    # it looks like this method is usually too unstable to be useful at all
+    function rk_step_explicit!(ω::AbstractMatrix, A::AbstractMatrix)
+        s = length(butcher_b)
+        k_ω = Vector{Matrix{Float64}}(undef, s)
+        k_A = Vector{Matrix{Float64}}(undef, s)
 
-    Bx::Array{Float64} = zeros((N,N,timesteps))
-    By::Array{Float64} = zeros((N,N,timesteps))
-    
-    Bx[:,:,1] = ∂y(A)
-    By[:,:,1] = -∂x(A)
+        k_ω[1], k_A[1] = fdm_terms(ω, A)
+        for i ∈ 2:s
+            ω_s = ω .+ dt .* sum(butcher_A[i,j] .* k_ω[j] for j ∈ 1:i-1, init=zeros(N, N))
+            A_s = A .+ dt .* sum(butcher_A[i,j] .* k_A[j] for j ∈ 1:i-1, init=zeros(N,N))
+            k_ω[i], k_A[i] = fdm_terms(ω_s, A_s)
+        end
 
-    p::Array{Float64} = zeros((N,N,timesteps))
+        ω .+= dt .* sum(butcher_b[i] .* k_ω[i] for i ∈ 1:s, init=zeros(N,N))
+        A .+= dt .* sum(butcher_b[i] .* k_A[i] for i ∈ 1:s, init=zeros(N,N))
+    end
 
-    for t ∈ 2:timesteps
-        adv_j::Matrix{Float64} = u[:,:,t-1].*∂x(curr[:,:,t-1]) .+ v[:,:,t-1].*∂y(curr[:,:,t-1])
-        nl_j::Matrix{Float64}  = curr[:,:,t-1] .- dt.*adv_j
-        curr[:,:,t] = solve_implicit(nl_j, η*dt/dx^2)
+    function rk_step_implicit!(ω::AbstractMatrix, A::AbstractMatrix, max_iter::Int=1000, tol::AbstractFloat=1e-6)
+        s = length(butcher_b)
 
-        A = inv_∇2(-curr[:,:,t])
+        k0_ω, k0_A = fdm_terms(ω, A)
+        k_ω = [copy(k0_ω) for _ in 1:s]
+        k_A = [copy(k0_A) for _ in 1:s]
+
+        converged = false
+        for _ ∈ 1:max_iter
+            ω_stages = [ω .+ dt .* sum(butcher_A[j,l] .* k_ω[l] for l ∈ 1:s; init=zeros(N, N)) for j ∈ 1:s]
+            A_stages = [A .+ dt .* sum(butcher_A[j,l] .* k_A[l] for l ∈ 1:s; init=zeros(N, N)) for j ∈ 1:s]
+
+            k_ω_new = Vector{Matrix{Float64}}(undef, s)
+            k_A_new = Vector{Matrix{Float64}}(undef, s)
+
+            for j ∈ 1:s
+                k_ω_new[j], k_A_new[j] = fdm_terms(ω_stages[j], A_stages[j])
+            end
+
+            # breaks when sufficiently close
+            err = sum(1:s) do j
+                norm(k_ω_new[j] .- k_ω[j]) / max(norm(k_ω[j]), 1e-12) +
+                norm(k_A_new[j] .- k_A[j]) / max(norm(k_A[j]), 1e-12)
+            end / (2s)
+
+            k_ω = k_ω_new
+            k_A = k_A_new
+
+            if err < tol
+                converged = true
+                break
+            end
+        end
+
+        converged || @warn "Fixed-point iteration did not converge" max_iter tol
+        
+        ω .+= dt .* sum(butcher_b[j] .* k_ω[j] for j in 1:s; init=zeros(N, N))
+        A .+= dt .* sum(butcher_b[j] .* k_A[j] for j in 1:s; init=zeros(N, N))
+    end
+
+    function update_fields!(t::Int, ω::AbstractMatrix, A::AbstractMatrix)
+        u[:,:,t] = inv_∇2(-∂y(ω))
+        v[:,:,t] = inv_∇2(∂x(ω))
+        curr = -∇2(A)
         Bx[:,:,t] = ∂y(A)
         By[:,:,t] = -∂x(A)
 
-        lorentz::Matrix{Float64} = Bx[:,:,t].*∂x(curr[:,:,t]) .+ By[:,:,t].*∂y(curr[:,:,t])
-        adv_ω::Matrix{Float64}   = u[:,:,t-1].*∂x(ω) .+ v[:,:,t-1].*∂y(ω)
-        nl_omega::Matrix{Float64} = ω .- dt.*(adv_ω .- lorentz .- forcing.(x,y))
-
-        ω = solve_implicit(nl_omega, ν*dt/dx^2)
-
-        u[:,:,t] = inv_∇2(-∂y(ω))
-        v[:,:,t] = inv_∇2(∂x(ω))
-
         ux = ∂x(u[:,:,t]); uy = ∂y(u[:,:,t])
         vx = ∂x(v[:,:,t]); vy = ∂y(v[:,:,t])
-        rhs_inertial::Matrix{Float64} = -(ux.^2 .+ 2 .*uy.*vx .+ vy.^2)
-        rhs_lorentz::Matrix{Float64}  = -∂x(curr[:,:,t].*By[:,:,t]) .+ ∂y(curr[:,:,t].*Bx[:,:,t])
-        p[:,:,t] = inv_∇2(rhs_inertial .+ rhs_lorentz)
+        p_inertial = -(ux.^2 .+ 2 .* uy .* vx .+ vy.^2)
+        p_lorentz  =  Bx[:,:,t] .* ∂x(curr) .+ By[:,:,t] .* ∂y(curr)
+        p[:,:,t] = inv_∇2(p_inertial .+ p_lorentz)
+    end
+
+    update_fields!(1, ω, A)
+
+    for t ∈ 2:timesteps
+        if explicit
+            rk_step_explicit!(ω, A)
+        else
+            rk_step_implicit!(ω, A)
+        end
+
+        update_fields!(t, ω, A)
     end
 
     if vis
