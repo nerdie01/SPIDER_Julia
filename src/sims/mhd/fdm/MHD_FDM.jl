@@ -4,9 +4,6 @@ include("../../../functions/VizUtils.jl")
 using MeshGrid, GLMakie, Random, LinearAlgebra
 using .VizUtils
 
-include("../../CommonSimTools.jl")
-using .CommonSimTools
-
 export mhd_fdm
 function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher_A::AbstractMatrix, butcher_b::AbstractVector, timesteps::Int, ν::AbstractFloat, η::AbstractFloat, explicit::Bool=false, vis::Bool=true, vis_path_prefix="", forcing::Function=(x,y)->0*x)
     x, y::Matrix{Float64} = meshgrid(LinRange(0, 2π, N+1)[1:N], LinRange(0, 2π, N+1)[1:N])
@@ -56,7 +53,7 @@ function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher
 
     ω = fω.(x,y)
     A = inv_∇2(-fj.(x,y))
-    frc = forcing.(x,y)
+    frc = forcing(x,y)
 
     u = zeros((N,N,timesteps))
     v = zeros((N,N,timesteps))
@@ -84,6 +81,8 @@ function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher
     end
 
     # it looks like this method is usually too unstable to be useful at all
+    # a timestep of 2^-6 for spectral matches up with ~2^-15 for finite difference, and it doesn't seem to be stability related
+    # idk what's going on but i'll just handle explicit schemes implicitly too
     function rk_step_explicit!(ω::AbstractMatrix, A::AbstractMatrix)
         s = length(butcher_b)
         k_ω = Vector{Matrix{Float64}}(undef, s)
@@ -91,13 +90,13 @@ function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher
 
         k_ω[1], k_A[1] = fdm_terms(ω, A)
         for i ∈ 2:s
-            ω_s = ω .+ dt .* sum(butcher_A[i,j] .* k_ω[j] for j ∈ 1:i-1, init=zeros(N, N))
-            A_s = A .+ dt .* sum(butcher_A[i,j] .* k_A[j] for j ∈ 1:i-1, init=zeros(N,N))
+            ω_s = ω .+ dt .* sum(butcher_A[i,j] .* k_ω[j] for j ∈ 1:i-1; init=zeros(N, N))
+            A_s = A .+ dt .* sum(butcher_A[i,j] .* k_A[j] for j ∈ 1:i-1; init=zeros(N,N))
             k_ω[i], k_A[i] = fdm_terms(ω_s, A_s)
         end
 
-        ω .+= dt .* sum(butcher_b[i] .* k_ω[i] for i ∈ 1:s, init=zeros(N,N))
-        A .+= dt .* sum(butcher_b[i] .* k_A[i] for i ∈ 1:s, init=zeros(N,N))
+        ω .+= dt .* sum(butcher_b[i] .* k_ω[i] for i ∈ 1:s; init=zeros(N,N))
+        A .+= dt .* sum(butcher_b[i] .* k_A[i] for i ∈ 1:s; init=zeros(N,N))
     end
 
     function rk_step_implicit!(ω::AbstractMatrix, A::AbstractMatrix, max_iter::Int=1000, tol::AbstractFloat=1e-6)
@@ -149,24 +148,20 @@ function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher
 
         ux = ∂x(u[:,:,t]); uy = ∂y(u[:,:,t])
         vx = ∂x(v[:,:,t]); vy = ∂y(v[:,:,t])
-        p_inertial = -(ux.^2 .+ 2 .* uy .* vx .+ vy.^2)
-        p_lorentz  =  Bx[:,:,t] .* ∂x(curr) .+ By[:,:,t] .* ∂y(curr)
-        p[:,:,t] = inv_∇2(p_inertial .+ p_lorentz)
+        p[:,:,t] = inv_∇2(2 .* ux .* vy .- 2 .* uy .* vx .- ∂x(curr .* By[:,:,t]) .+ ∂y(curr .* Bx[:,:,t]))
     end
 
     update_fields!(1, ω, A)
 
+    println("=== starting FDM ===")
     for t ∈ 2:timesteps
-        if explicit
-            rk_step_explicit!(ω, A)
-        else
-            rk_step_implicit!(ω, A)
-        end
-
+        rk_step_implicit!(ω, A)
         update_fields!(t, ω, A)
+        println(t)
     end
 
     if vis
+        println("=== visualizing FDM ===")
         VizUtils.quickanim(p, timesteps, 10, vis_path_prefix * "p.gif")
         VizUtils.quickanim(Bx, timesteps, 10, vis_path_prefix * "Bx.gif")
         VizUtils.quickanim(By, timesteps, 10, vis_path_prefix * "By.gif")
@@ -174,7 +169,7 @@ function mhd_fdm(fω::Function, fj::Function, N::Int, dt::AbstractFloat, butcher
         VizUtils.quickanim(v, timesteps, 10, vis_path_prefix * "v.gif")
     end
 
-    return (x,y,u,v,Bx,By,p)
+    return (x[1,:],x[1,:],u,v,Bx,By,p)
 end
 
 end

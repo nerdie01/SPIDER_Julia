@@ -4,9 +4,6 @@ include("../../../functions/VizUtils.jl")
 using MeshGrid, GLMakie, Random, FFTW, LinearAlgebra
 using .VizUtils
 
-include("../../CommonSimTools.jl")
-using .CommonSimTools
-
 include("SpectralTerms.jl")
 using .SpectralTerms
 
@@ -26,8 +23,8 @@ function mhd_spectral(fω::Function, fj::Function, N::Int, dt::AbstractFloat, bu
             k_ω[i], k_A[i] = f(ω_stage, A_stage)
         end
 
-        ω[:,:] = ω .+ dt .* sum(butcher_b[i] .* k_ω[i] for i in 1:s; init=zeros(ComplexF64, size(ω)))
-        A[:,:] = A .+ dt .* sum(butcher_b[i] .* k_A[i] for i in 1:s; init=zeros(ComplexF64, size(A)))
+        ω .+= dt .* sum(butcher_b[i] .* k_ω[i] for i in 1:s; init=zeros(ComplexF64, size(ω)))
+        A .+= dt .* sum(butcher_b[i] .* k_A[i] for i in 1:s; init=zeros(ComplexF64, size(A)))
     end
 
     function rk_step_implicit!(f, ω::AbstractMatrix, A::AbstractMatrix, max_iter::Int=1000, tol::Float64=1e-6)
@@ -114,6 +111,7 @@ function mhd_spectral(fω::Function, fj::Function, N::Int, dt::AbstractFloat, bu
     ω = fft(fω.(x,y)) .* mask
     A = -inv_∇2 .* fft(fj.(x,y)) .* mask
     
+    println("=== starting spectral ===")
     for t ∈ 1:timesteps
         uhat = -∂y.*inv_∇2.*ω
         vhat = ∂x.*inv_∇2.*ω
@@ -145,15 +143,20 @@ function mhd_spectral(fω::Function, fj::Function, N::Int, dt::AbstractFloat, bu
         end
 
         rk_step_implicit!(rhs, ω, A)
+
+        println(t)
     end
 
     if vis
+        println("=== visualizing spectral ===")
         VizUtils.quickanim(p, timesteps, 10, vis_path_prefix * "p.gif")
         VizUtils.quickanim(Bx, timesteps, 10, vis_path_prefix * "Bx.gif")
         VizUtils.quickanim(By, timesteps, 10, vis_path_prefix * "By.gif")
         VizUtils.quickanim(u, timesteps, 10, vis_path_prefix * "u.gif")
         VizUtils.quickanim(v, timesteps, 10, vis_path_prefix * "v.gif")
     end
+
+    return (x[1,:],x[1,:],u,v,Bx,By,p)
 end
 
 end
